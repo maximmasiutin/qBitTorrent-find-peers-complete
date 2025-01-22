@@ -76,7 +76,7 @@ def configure_logging(log_level: str, log_file: str):
 
 def print_usage_example():
     print(f"Usage: python find-peers-complete.py --host <host:port> --username <username> --password <password> [--verify-cert <True/False> --log-level <log_level> --log-file <log_file> --save-paths <save_paths>]")
-    print(f"Example: python find-peers-complete.py --host localhost:80 --username admin --password 12345678 --save-paths c:\\torrents\\fist,c:\\torrents\\second\n")
+    print(f"Example: python find-peers-complete.py --host localhost:80 --username admin --password 12345678 --save-paths c:\\metainfo\\first,c:\\metainfo\\second\n")
 
 
 # ==============================================
@@ -163,7 +163,7 @@ def main():
                 found_complete += 1
                 export_fname = f"{torrent.hash}.torrent"
                 logger.info(
-                    f"Torrent: {torrent.name} is complete ({max_progress}%), saving to {export_fname}..."
+                    f"The download {torrent.name} has peer(s) with complete data ({max_progress}%), saving to {export_fname}..."
                 )
                 data = client.torrents_export(torrent_hash=torrent.hash)
                 for dir in dirs:
@@ -174,7 +174,7 @@ def main():
             else:
                 if max_progress > 0:
                     logger.debug(
-                        f"The download {torrent.name} is not complete ({max_progress}%)"
+                        f"The download {torrent.name} does not have any peer complete data. Maximum what a peer has is {max_progress}%)"
                     )
                     found_partial += 1
                 else:
