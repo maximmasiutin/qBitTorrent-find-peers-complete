@@ -7,8 +7,8 @@ import argparse
 import sys
 import time
 import requests
-from qBitTorrentapi import Client, LoginFailed
-from qBitTorrentapi.exceptions import APIConnectionError
+from qbittorrentapi import Client, LoginFailed
+from qbittorrentapi.exceptions import APIConnectionError
 
 # ==============================================
 # Configuration Constants (Defaults)
@@ -32,10 +32,10 @@ DEFAULT_SAVE_PATHS = "."
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Find in-progress downloads with at least one 100%-peer and save the meta-info files of these downloads to a directory optionally saving copies to other directories.")
-    parser.add_argument("--host",        default=DEFAULT_QB_CLIENT_CONFIG["host"], help="qBitTorrent WebUI host (default: %(default)s)")
-    parser.add_argument("--username",    default=DEFAULT_QB_CLIENT_CONFIG["username"], help="qBitTorrent WebUI username (default: %(default)s)")
-    parser.add_argument("--password",    default=DEFAULT_QB_CLIENT_CONFIG["password"], help="qBitTorrent WebUI password (default: %(default)s)")
-    parser.add_argument("--verify-cert", default=DEFAULT_QB_CLIENT_CONFIG["VERIFY_WEBUI_CERTIFICATE"], type=bool, help="Verify SSL certificate for qBitTorrent WebUI (default: %(default)s)")
+    parser.add_argument("--host",        default=DEFAULT_QB_CLIENT_CONFIG["host"], help="qBittorrent WebUI host (default: %(default)s)")
+    parser.add_argument("--username",    default=DEFAULT_QB_CLIENT_CONFIG["username"], help="qBittorrent WebUI username (default: %(default)s)")
+    parser.add_argument("--password",    default=DEFAULT_QB_CLIENT_CONFIG["password"], help="qBittorrent WebUI password (default: %(default)s)")
+    parser.add_argument("--verify-cert", default=DEFAULT_QB_CLIENT_CONFIG["VERIFY_WEBUI_CERTIFICATE"], type=bool, help="Verify SSL certificate for qBittorrent WebUI (default: %(default)s)")
     parser.add_argument("--log-level",   default=DEFAULT_LOG_LEVEL, help="Logging level (default: %(default)s)")
     parser.add_argument("--log-file",    default=DEFAULT_LOG_FNAME, help="Log file name (default: %(default)s)")
     parser.add_argument("--save-paths",  default=DEFAULT_SAVE_PATHS, help="Save meta-info file directory comma-separated list (default: %(default)s)")
@@ -100,21 +100,21 @@ def main():
     }
 
     if not qb_client_config["host"]:
-        print(f"Error: Host and port of qBitTorrent WebUI is required", file=sys.stderr)
+        print(f"Error: Host and port of qBittorrent WebUI is required", file=sys.stderr)
         print_usage_example()
         sys.exit(1)
     if not qb_client_config["username"]:
-        print(f"Error: Username for qBitTorrent WebUI is required", file=sys.stderr)
+        print(f"Error: Username for qBittorrent WebUI is required", file=sys.stderr)
         print_usage_example()
         sys.exit(1)
     if not qb_client_config["password"]:
-        print(f"Error: Password for qBitTorrent WebUI is required.", file=sys.stderr)
+        print(f"Error: Password for qBittorrent WebUI is required.", file=sys.stderr)
         print_usage_example()
         sys.exit(1)
 
     print("Reporting progress to log file",args.log_file,"...")
 
-    # Initialize qBitTorrent client with configuration parameters
+    # Initialize qBittorrent client with configuration parameters
     try:
         client = Client(
             host=qb_client_config["host"],
@@ -124,11 +124,11 @@ def main():
         )
         client.auth_log_in()
     except LoginFailed as e:
-        logger.error(f"Failed to log in to qBitTorrent: {e}")
+        logger.error(f"Failed to log in to qBittorrent: {e}")
         sys.exit(1)
 
     except APIConnectionError as e:
-        logger.error(f"Failed to connect to qBitTorrent API: {e}")
+        logger.error(f"Failed to connect to qBittorrent API: {e}")
         sys.exit(1)
 
     # Fetch all downloads with progress less than 100%
