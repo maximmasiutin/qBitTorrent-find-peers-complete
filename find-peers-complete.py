@@ -285,7 +285,7 @@ def main() -> None:
         else:
             percentage: float = download_progress * 100
             logger.fatal(
-                f"Unexpected value for the progress ({percentage:.2f}% ) for the download '{download_name}', comment '{download_comment}', hash: {download_hash}. Aborting!"
+                f"Unexpected value for the progress ({percentage:.2f}%) for the download '{download_name}', comment '{download_comment}', hash: {download_hash}. Aborting!"
             )
             sys.exit(1)
 
