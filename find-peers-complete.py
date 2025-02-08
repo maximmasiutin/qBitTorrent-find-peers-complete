@@ -19,50 +19,17 @@ def parse_arguments() -> argparse.Namespace:
             "saving copies to other directories."
         )
     )
-    parser.add_argument(
-        "--host", required=True, help="qBittorrent WebUI host (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--username",
-        required=True,
-        help="qBittorrent WebUI username (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--password",
-        required=True,
-        help="qBittorrent WebUI password (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--verify-cert",
-        action="store_true",
-        help="Verify SSL certificate for qBittorrent WebUI",
-    )
-    parser.add_argument(
-        "--log-level", default="INFO", help="Logging level (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--log-file",
-        default="find-peers-complete.log",
-        help="Log file name (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--save-paths",
-        default=".",
-        help="Save meta-info file directory comma-separated list (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--delete-complete",
-        action="store_true",
-        help="Delete download from client after exporting the meta-info file",
-    )
-    parser.add_argument(
-        "--active-only", action="store_true", help="Only check for active downloads"
-    )
-    parser.add_argument(
-        "--with-peers-only",
-        action="store_true",
-        help="Only check for downloads that has peers",
-    )
+    parser.add_argument("--host", required=True, help="qBittorrent WebUI host:port")
+    parser.add_argument("--username", required=True, help="qBittorrent WebUI username")
+    parser.add_argument("--password", required=True, help="qBittorrent WebUI password")
+    parser.add_argument("--verify-cert",action="store_true", help="Verify SSL certificate for qBittorrent WebUI")
+    parser.add_argument("--log-level", default="INFO", type=str, help="Logging level (default: %(default)s)")
+    parser.add_argument("--log-file",default="find-peers-complete.log",type=str, help="Log file name (default: %(default)s)")
+    parser.add_argument("--save-paths", default=".", type=str, help="Save meta-info file directory comma-separated list (default: %(default)s)")
+    parser.add_argument("--delete-complete", action="store_true", help="Delete download from client after exporting the meta-info file")
+    parser.add_argument("--active-only", action="store_true", help="Only check for active downloads")
+    parser.add_argument("--with-peers-only", action="store_true", help="Only check for downloads that has peers")
+    parser.add_argument("--tracker", type=str, help="Add a tracker to exported files")
     return parser.parse_args()
 
 
@@ -92,9 +59,11 @@ def main() -> None:
 
     args: argparse.Namespace = parse_arguments()
     logger: logging.Logger = configure_logging(args.log_level, args.log_file)
-
+    
     print("Reporting progress to log file", args.log_file, "...")
 
+    tracker_to_add = args.tracker
+    
     delete_complete: bool = args.delete_complete
 
     script_dir: str = os.path.dirname(os.path.abspath(__file__))
@@ -103,9 +72,7 @@ def main() -> None:
     completed_hashes_map: Dict[str, bool] = {}
     completed_hashes_map_modified: bool = False
     if not os.path.exists(completed_hashes_fname):
-        logger.info(
-            f"File '{completed_hashes_fname}' does not exist. No hashes to load."
-        )
+        logger.info(f"File '{completed_hashes_fname}' does not exist. No hashes to load.")
     else:
         with open(completed_hashes_fname, "r", encoding="ascii") as file:
             file_content: str = file.read()
@@ -117,9 +84,7 @@ def main() -> None:
             completed_hashes_map[h] = True
         hashes_count: int = len(hashes_array)
         del hashes_array
-        logger.info(
-            f"Loaded {hashes_count} hashes from '{completed_hashes_fname}' to prevent duplicate findings in subsequent runs"
-        )
+        logger.info(f"Loaded {hashes_count} hashes from '{completed_hashes_fname}' to prevent duplicate findings in subsequent runs")
 
     logger.info(f"Connecting to qBittorrent WebUI at {args.host}...")
     try:
@@ -234,9 +199,20 @@ def main() -> None:
                 completed_hashes_map[download_hash] = True
                 completed_hashes_map_modified = True
                 export_fname: str = f"{download_hash}.torrent"
-                logger.info(
-                    f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has peer(s) with complete data ({max_progress_percentage:.2f}%), saving to {export_fname}..."
-                )
+
+                if tracker_to_add:
+                    logger.info(f"Adding tracker to the download '{download_name}'...")
+                    add_tracker_successful: bool = False
+                    try:
+                        data: bytes = client.torrents_add_trackers(torrent_hash=download_hash, urls=tracker_to_add)
+                        add_tracker_successful = True
+                    except HTTPError as e:
+                        logger.error(f"HTTP error {e} adding tracker to download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping...")
+                    
+                if add_tracker_successful == False:
+                    continue
+
+                logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has peer(s) with complete data ({max_progress_percentage:.2f}%), saving to {export_fname}...")
                 export_successful: bool = False
                 try:
                     data: bytes = client.torrents_export(torrent_hash=download_hash)
