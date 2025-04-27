@@ -13,18 +13,14 @@ from qbittorrentapi.exceptions import APIConnectionError, HTTPError
 
 def parse_arguments() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        description=(
-            "Find in-progress downloads with at least one 100%-peer and save "
-            "the meta-info files of these downloads to a directory optionally "
-            "saving copies to other directories."
-        )
+        description=("Find in-progress downloads with at least one 100%-peer and save " "the meta-info files of these downloads to a directory optionally " "saving copies to other directories.")
     )
     parser.add_argument("--host", required=True, help="qBittorrent WebUI host:port")
     parser.add_argument("--username", required=True, help="qBittorrent WebUI username")
     parser.add_argument("--password", required=True, help="qBittorrent WebUI password")
-    parser.add_argument("--verify-cert",action="store_true", help="Verify SSL certificate for qBittorrent WebUI")
+    parser.add_argument("--verify-cert", action="store_true", help="Verify SSL certificate for qBittorrent WebUI")
     parser.add_argument("--log-level", default="INFO", type=str, help="Logging level (default: %(default)s)")
-    parser.add_argument("--log-file",default="find-peers-complete.log",type=str, help="Log file name (default: %(default)s)")
+    parser.add_argument("--log-file", default="find-peers-complete.log", type=str, help="Log file name (default: %(default)s)")
     parser.add_argument("--save-paths", default=".", type=str, help="Save meta-info file directory comma-separated list (default: %(default)s)")
     parser.add_argument("--delete-complete", action="store_true", help="Delete download from client after exporting the meta-info file")
     parser.add_argument("--active-only", action="store_true", help="Only check for active downloads")
@@ -64,6 +60,7 @@ def add_tracker(client: Client, torrent_hash: str, tracker_url: str, logger: log
         logger.error(f"HTTP error {e} adding tracker '{tracker_url}' to torrent '{torrent_hash}'.")
         return False
 
+
 def export_torrent(client: Client, torrent_hash: str, dirs: List[str], logger: logging.Logger) -> bool:
     try:
         data: bytes = client.torrents_export(torrent_hash=torrent_hash)
@@ -81,6 +78,7 @@ def export_torrent(client: Client, torrent_hash: str, dirs: List[str], logger: l
         logger.error(f"I/O error {e} writing torrent '{torrent_hash}' to disk.")
         return False
 
+
 def delete_torrent(client: Client, torrent_hash: str, logger: logging.Logger) -> bool:
     try:
         client.torrents_delete(torrent_hashes=torrent_hash, deleteFiles=True)
@@ -96,11 +94,11 @@ def main() -> None:
 
     args: argparse.Namespace = parse_arguments()
     logger: logging.Logger = configure_logging(args.log_level, args.log_file)
-    
+
     print("Reporting progress to log file", args.log_file, "...")
 
     tracker_to_add = args.tracker
-    
+
     delete_complete: bool = args.delete_complete
 
     script_dir: str = os.path.dirname(os.path.abspath(__file__))
@@ -113,9 +111,7 @@ def main() -> None:
     else:
         with open(completed_hashes_fname, "r", encoding="ascii") as file:
             file_content: str = file.read()
-        hashes_array: List[str] = [
-            str(line).strip() for line in file_content.split("\n") if line
-        ]
+        hashes_array: List[str] = [str(line).strip() for line in file_content.split("\n") if line]
         del file_content
         for h in hashes_array:
             completed_hashes_map[h] = True
@@ -165,12 +161,7 @@ def main() -> None:
 
     for download in downloads:
         if args.with_peers_only:
-            if (
-                (download.num_complete == 0)
-                and (download.num_incomplete == 0)
-                and (download.num_seeds == 0)
-                and (download.num_leechs == 0)
-            ):
+            if (download.num_complete == 0) and (download.num_incomplete == 0) and (download.num_seeds == 0) and (download.num_leechs == 0):
                 continue
         total_downloads += 1
         download_hash: str = download.hash
@@ -180,43 +171,29 @@ def main() -> None:
         already_processed: Optional[bool] = completed_hashes_map.get(download_hash)
         if already_processed is True:
             if delete_complete and (download_progress == 1):
-                logger.info(
-                    f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has been processed earlier, deleting because we have full data..."
-                )
+                logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has been processed earlier, deleting because we have full data...")
                 delete_successful: bool = False
                 try:
-                    client.torrents_delete(
-                        torrent_hashes=download_hash, deleteFiles=True
-                    )
+                    client.torrents_delete(torrent_hashes=download_hash, deleteFiles=True)
                     delete_successful = True
                 except HTTPError as e:
-                    logger.error(
-                        f"HTTP error {e} deleting the download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping..."
-                    )
+                    logger.error(f"HTTP error {e} deleting the download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping...")
                 if not delete_successful:
                     continue
             else:
-                logger.info(
-                    f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has been processed earlier, skipping..."
-                )
+                logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has been processed earlier, skipping...")
             continue
 
         if download_progress == 1:
-            logger.info(
-                f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, is already complete, skipping..."
-            )
+            logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, is already complete, skipping...")
         elif download_progress < 1:
-            logger.info(
-                f"Getting the peer information about the download '{download_name}', comment '{download_comment}', hash: {download_hash}..."
-            )
+            logger.info(f"Getting the peer information about the download '{download_name}', comment '{download_comment}', hash: {download_hash}...")
             sync_info_received: bool = False
             try:
                 peers_info: Any = client.sync_torrent_peers(torrent_hash=download_hash)
                 sync_info_received = True
             except HTTPError as e:
-                logger.error(
-                    f"HTTP error {e} receiving peer information for download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping..."
-                )
+                logger.error(f"HTTP error {e} receiving peer information for download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping...")
 
             if not sync_info_received:
                 continue
@@ -260,15 +237,11 @@ def main() -> None:
                     )
                     found_partial += 1
                 else:
-                    logger.info(
-                        f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer data."
-                    )
+                    logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer data.")
                     found_zero += 1
         else:
             percentage: float = download_progress * 100
-            logger.fatal(
-                f"Unexpected value for the progress ({percentage:.2f}%) for the download '{download_name}', comment '{download_comment}', hash: {download_hash}. Aborting!"
-            )
+            logger.fatal(f"Unexpected value for the progress ({percentage:.2f}%) for the download '{download_name}', comment '{download_comment}', hash: {download_hash}. Aborting!")
             sys.exit(1)
 
     if completed_hashes_map_modified:
@@ -281,9 +254,7 @@ def main() -> None:
         completed_hashes_map_modified = False
 
     if found_complete == 0:
-        logger.info(
-            f"No downloads with at least one complete peer found out of {total_downloads} total downloads ({found_zero} zero availability, {found_partial} partially available downloads)."
-        )
+        logger.info(f"No downloads with at least one complete peer found out of {total_downloads} total downloads ({found_zero} zero availability, {found_partial} partially available downloads).")
     else:
         logger.info(f"Found {found_complete} downloads with complete data at peers.")
 
