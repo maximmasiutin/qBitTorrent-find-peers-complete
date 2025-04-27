@@ -13,7 +13,7 @@ from qbittorrentapi.exceptions import APIConnectionError, HTTPError
 
 def parse_arguments() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        description=("Find in-progress downloads with at least one 100%-peer and save " "the meta-info files of these downloads to a directory optionally " "saving copies to other directories.")
+        description=("Find in-progress downloads with at least one 100%-peer and save the meta-info files of these downloads to a directory optionally saving copies to other directories.")
     )
     parser.add_argument("--host", required=True, help="qBittorrent WebUI host:port")
     parser.add_argument("--username", required=True, help="qBittorrent WebUI username")
