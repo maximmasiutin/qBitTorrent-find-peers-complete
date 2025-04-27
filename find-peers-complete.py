@@ -12,9 +12,7 @@ from qbittorrentapi.exceptions import APIConnectionError, HTTPError
 
 
 def parse_arguments() -> argparse.Namespace:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        description=("Find in-progress downloads with at least one 100%-peer and save the meta-info files of these downloads to a directory optionally saving copies to other directories.")
-    )
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(description=("Find in-progress downloads with at least one 100%-peer and save the meta-info files of these downloads to a directory optionally saving copies to other directories."))
     parser.add_argument("--host", required=True, help="qBittorrent WebUI host:port")
     parser.add_argument("--username", required=True, help="qBittorrent WebUI username")
     parser.add_argument("--password", required=True, help="qBittorrent WebUI password")
@@ -219,9 +217,7 @@ def main() -> None:
                     if not add_tracker(client, download_hash, tracker_to_add, logger):
                         continue
 
-                logger.info(
-                    f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has peer(s) with complete data ({max_progress_percentage:.2f}%), saving to {export_fname}..."
-                )
+                logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has peer(s) with complete data ({max_progress_percentage:.2f}%), saving to {export_fname}...")
 
                 if not export_torrent(client, download_hash, dirs, logger):
                     continue
@@ -232,9 +228,7 @@ def main() -> None:
 
             else:
                 if max_progress > 0:
-                    logger.info(
-                        f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer with complete data. Maximum peer progress: {max_progress_percentage:.2f}%"
-                    )
+                    logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer with complete data. Maximum peer progress: {max_progress_percentage:.2f}%")
                     found_partial += 1
                 else:
                     logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer data.")
