@@ -30,6 +30,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--active-only", action="store_true", help="Only check for active downloads")
     parser.add_argument("--with-peers-only", action="store_true", help="Only check for downloads that has peers")
     parser.add_argument("--tracker", type=str, help="Add a tracker to exported files")
+    parser.add_argument("--user-agent", type=str, default=None, help="Custom User-Agent for qBittorrent WebUI requests (optional)")
     return parser.parse_args()
 
 
@@ -52,6 +53,42 @@ def configure_logging(log_level: str, log_file: str) -> logging.Logger:
     )
     logger: logging.Logger = logging.getLogger(__name__)
     return logger
+
+
+def add_tracker(client: Client, torrent_hash: str, tracker_url: str, logger: logging.Logger) -> bool:
+    try:
+        client.torrents_add_trackers(torrent_hash=torrent_hash, urls=tracker_url)
+        logger.info(f"Successfully added tracker '{tracker_url}' to torrent '{torrent_hash}'.")
+        return True
+    except HTTPError as e:
+        logger.error(f"HTTP error {e} adding tracker '{tracker_url}' to torrent '{torrent_hash}'.")
+        return False
+
+def export_torrent(client: Client, torrent_hash: str, dirs: List[str], logger: logging.Logger) -> bool:
+    try:
+        data: bytes = client.torrents_export(torrent_hash=torrent_hash)
+        export_fname: str = f"{torrent_hash}.torrent"
+        for save_dir in dirs:
+            full_path: str = os.path.join(save_dir, export_fname)
+            with open(full_path, "wb") as f:
+                f.write(data)
+                logger.info(f"Saved torrent meta-info to {full_path}")
+        return True
+    except HTTPError as e:
+        logger.error(f"HTTP error {e} exporting torrent '{torrent_hash}'.")
+        return False
+    except IOError as e:
+        logger.error(f"I/O error {e} writing torrent '{torrent_hash}' to disk.")
+        return False
+
+def delete_torrent(client: Client, torrent_hash: str, logger: logging.Logger) -> bool:
+    try:
+        client.torrents_delete(torrent_hashes=torrent_hash, deleteFiles=True)
+        logger.info(f"Deleted torrent '{torrent_hash}' successfully.")
+        return True
+    except HTTPError as e:
+        logger.error(f"HTTP error {e} deleting torrent '{torrent_hash}'.")
+        return False
 
 
 def main() -> None:
@@ -93,6 +130,7 @@ def main() -> None:
             username=args.username,
             password=args.password,
             VERIFY_WEBUI_CERTIFICATE=args.verify_cert,
+            REQUESTS_ARGS={"headers": {"User-Agent": args.user_agent}} if args.user_agent else None,
         )
         client.auth_log_in()
     except LoginFailed as e:
@@ -201,56 +239,24 @@ def main() -> None:
                 export_fname: str = f"{download_hash}.torrent"
 
                 if tracker_to_add:
-                    logger.info(f"Adding tracker to the download '{download_name}'...")
-                    add_tracker_successful: bool = False
-                    try:
-                        data: bytes = client.torrents_add_trackers(torrent_hash=download_hash, urls=tracker_to_add)
-                        add_tracker_successful = True
-                    except HTTPError as e:
-                        logger.error(f"HTTP error {e} adding tracker to download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping...")
-                    
-                if add_tracker_successful == False:
+                    if not add_tracker(client, download_hash, tracker_to_add, logger):
+                        continue
+
+                logger.info(
+                    f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has peer(s) with complete data ({max_progress_percentage:.2f}%), saving to {export_fname}..."
+                )
+
+                if not export_torrent(client, download_hash, dirs, logger):
                     continue
 
-                logger.info(f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, has peer(s) with complete data ({max_progress_percentage:.2f}%), saving to {export_fname}...")
-                export_successful: bool = False
-                try:
-                    data: bytes = client.torrents_export(torrent_hash=download_hash)
-                    export_successful = True
-                except HTTPError as e:
-                    logger.error(
-                        f"HTTP error {e} fetching meta-info for download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping..."
-                    )
-
-                if not export_successful:
-                    continue
-
-                for save_dir in dirs:
-                    full_path: str = os.path.join(save_dir, export_fname)
-                    with open(full_path, "wb") as f:
-                        f.write(data)
-                        logger.info(f"Saved to {full_path}")
                 if delete_complete:
-                    logger.info(
-                        f"Deleting download '{download_name}', comment '{download_comment}', hash: {download_hash}..."
-                    )
-                    delete_successful = False
-                    try:
-                        client.torrents_delete(
-                            torrent_hashes=download_hash, deleteFiles=True
-                        )
-                        delete_successful = True
-                    except HTTPError as e:
-                        logger.error(
-                            f"HTTP error {e} deleting the download '{download_name}', comment '{download_comment}', hash: {download_hash}, skipping..."
-                        )
-                    if not delete_successful:
+                    if not delete_torrent(client, download_hash, logger):
                         continue
 
             else:
                 if max_progress > 0:
                     logger.info(
-                        f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer with complete data. Maximum what a peer has is {max_progress_percentage:.2f}%"
+                        f"The download '{download_name}', comment '{download_comment}', hash: {download_hash}, does not have any peer with complete data. Maximum peer progress: {max_progress_percentage:.2f}%"
                     )
                     found_partial += 1
                 else:
