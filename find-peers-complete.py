@@ -6,6 +6,8 @@ import logging
 import argparse
 import sys
 import time
+import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from requests.exceptions import RequestException
@@ -20,6 +22,9 @@ def is_safe_path(base_dir: str, target_path: str) -> bool:
     return target_path.startswith(base_dir + os.sep) or target_path == base_dir
 
 
+SAFE_FILENAME_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
+
+
 def sanitize_filename(filename: str) -> str:
     """Remove path separators and dangerous characters from filename."""
     basename = os.path.basename(filename)
@@ -27,6 +32,15 @@ def sanitize_filename(filename: str) -> str:
     if not sanitized or sanitized in (".", ".."):
         raise ValueError(f"Invalid filename: {filename}")
     return sanitized
+
+
+def validate_safe_filename(filename: str) -> str:
+    """Validate filename matches safe pattern (alphanumeric, dots, dashes, underscores)."""
+    if not SAFE_FILENAME_PATTERN.match(filename):
+        raise ValueError(f"Filename contains unsafe characters: {filename}")
+    if ".." in filename:
+        raise ValueError(f"Filename contains path traversal: {filename}")
+    return filename
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -87,6 +101,14 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def validate_directory(dir_path: str) -> Path:
+    """Validate and return the resolved Path of a directory."""
+    path: Path = Path(dir_path).resolve()
+    if not path.is_dir():
+        raise ValueError(f"Directory does not exist: {dir_path}")
+    return path
+
+
 def configure_logging(log_level: str, log_file: str) -> logging.Logger:
     """Configure logging with the specified level and file."""
     numeric_level: Optional[int] = getattr(logging, log_level.upper(), None)
@@ -95,7 +117,7 @@ def configure_logging(log_level: str, log_file: str) -> logging.Logger:
         sys.exit(1)
 
     safe_log_file: str = sanitize_filename(log_file)
-    log_dir: str = os.path.dirname(os.path.abspath(log_file)) or os.getcwd()
+    log_dir: str = os.path.realpath(os.getcwd())
     full_log_path: str = os.path.join(log_dir, safe_log_file)
     if not is_safe_path(log_dir, full_log_path):
         print("Invalid log file path:", log_file)
@@ -134,24 +156,25 @@ def add_tracker(
 
 
 def export_torrent(
-    client: Client, torrent_hash: str, dirs: List[str], logger: logging.Logger
+    client: Client, torrent_hash: str, dirs: List[Path], logger: logging.Logger
 ) -> bool:
     """Export torrent meta-info file to specified directories."""
     try:
         data: bytes = client.torrents_export(torrent_hash=torrent_hash)
         safe_hash: str = sanitize_filename(torrent_hash)
         export_fname: str = f"{safe_hash}.torrent"
+        validate_safe_filename(export_fname)
         for save_dir in dirs:
-            abs_save_dir: str = os.path.realpath(save_dir)
-            full_path: str = os.path.join(abs_save_dir, export_fname)
-            if not is_safe_path(abs_save_dir, full_path):
+            full_path: Path = save_dir / export_fname
+            resolved_path: Path = full_path.resolve()
+            if not str(resolved_path).startswith(str(save_dir.resolve()) + os.sep):
                 logger.error(
                     "Path traversal detected for torrent '%s', skipping...", torrent_hash
                 )
                 return False
-            with open(full_path, "wb") as f:
+            with resolved_path.open("wb") as f:
                 f.write(data)
-                logger.info("Saved torrent meta-info to %s", full_path)
+                logger.info("Saved torrent meta-info to %s", resolved_path)
         return True
     except HTTPError as e:
         logger.error("HTTP error %s exporting torrent '%s'.", e, torrent_hash)
@@ -252,7 +275,14 @@ def main() -> None:
     found_partial: int = 0
     total_downloads: int = 0
 
-    dirs: List[str] = args.save_paths.split(",")
+    dirs: List[Path] = []
+    for dir_path in args.save_paths.split(","):
+        try:
+            validated_dir: Path = validate_directory(dir_path.strip())
+            dirs.append(validated_dir)
+        except ValueError as e:
+            logger.error("Invalid save path: %s", e)
+            sys.exit(1)
 
     for download in downloads:
         if args.with_peers_only:
