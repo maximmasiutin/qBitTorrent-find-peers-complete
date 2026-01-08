@@ -5,4 +5,4 @@ This Python script uses the [qBittorrent](https://github.com/qbittorrent/qBittor
 It uses the [qBittorrent Web API Client](https://qbittorrent-api.readthedocs.io/en/latest/) library.
 
 Prerequisites:  
-`python -m pip install -r requirements.txt`
+`python -m pip install requests qbittorrent-api`
