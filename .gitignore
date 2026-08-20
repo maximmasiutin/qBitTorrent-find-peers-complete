@@ -1,2 +1,5 @@
 find-peers-complete.log
 completed_hashes.txt
+.project/
+.scannerwork/
+__pycache__/
